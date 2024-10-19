@@ -33,6 +33,7 @@ The project consists of several key components:
    git clone https://github.com/abdullahghonaiem/Serverside_mobileriz.git
    cd Serverside_mobileriz
 2. Build and start the containers:
+  ```bash
    docker-compose up --build
 
 
