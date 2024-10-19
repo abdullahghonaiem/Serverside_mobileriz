@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  backend:
+    container_name: fastapi
+    build:
+      context: .  # This should point to the directory containing your Dockerfile and your Python file
+    ports:
+      - "8000:8000"  # Map host port 8000 to container port 8000
+    environment:
+      DATABASE_URL: postgresql://postgres:pp00pp00@host.docker.internal:5432/mobileriz_db  # Change this line
+      KAFKA_SERVERS: kafka:9092  # Add this environment variable for Kafka connection
+    depends_on:
+      - postgres  # Ensure PostgreSQL starts before FastAPI
+      - kafka     # Ensure Kafka starts before FastAPI
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pp00pp00
+      POSTGRES_DB: mobileriz_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"  # Kafka port for INSIDE listener
+      - "9093:9093"  # Kafka port for OUTSIDE listener
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE  # Set to one of your listener names
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181  # Connect to Zookeeper
+    depends_on:
+      - zookeeper  # Ensure Zookeeper starts before Kafka
+
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"  # Zookeeper port
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  flink:
+    image: flink:latest
+    container_name: flink
+    ports:
+      - "8082:8081"  # Flink web UI
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: jobmanager  # Set the Job Manager address
+    depends_on:
+      - jobmanager
+      - taskmanager
+
+  jobmanager:
+    image: flink:latest
+    container_name: jobmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: jobmanager  # Set the Job Manager address
+    ports:
+      - "8081:8081"  # Flink web UI
+    command: jobmanager  # Specify the command to run the Job Manager
+
+  taskmanager:
+    image: flink:latest
+    container_name: taskmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: jobmanager  # Set the Job Manager address
+    command: taskmanager  # Specify the command to run the Task Manager
+
+volumes:
+  postgres_data:
